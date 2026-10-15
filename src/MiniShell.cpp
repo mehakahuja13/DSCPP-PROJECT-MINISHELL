@@ -188,9 +188,12 @@ bool MiniShell::execute(const std::string& rawLine) {
             Status check = fs.canRemove(tok[i]);
             if (check != Status::OK) { report(check, tok[i]); continue; }
             FSNode* node = fs.resolve(tok[i]);
-            if (node != nullptr && node->isDirectory() &&
-                !static_cast<Directory*>(node)->isEmpty()) {
-                if (!confirm("'" + tok[i] + "' is not empty. Delete it and everything inside?")) {
+            if (node != nullptr && node->isDirectory()) {
+                const bool isEmpty = static_cast<Directory*>(node)->isEmpty();
+                const std::string question = isEmpty
+                    ? "Delete empty folder '" + tok[i] + "'?"
+                    : "'" + tok[i] + "' is not empty. Delete it and everything inside?";
+                if (!confirm(question)) {
                     std::cout << "Cancelled.\n";
                     continue;
                 }
