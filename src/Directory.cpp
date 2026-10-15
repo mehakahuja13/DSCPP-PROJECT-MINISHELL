@@ -15,6 +15,39 @@ Directory::~Directory() {
     }
 }
 
+// Forward to every child, so all files in this subtree get removed from the index.
+void Directory::unregisterFrom(PlagiarismChecker& checker) const {
+    for (ChildNode* cur = head; cur != nullptr; cur = cur->next) {
+        cur->node->unregisterFrom(checker);
+    }
+}
+
+void Directory::registerWith(PlagiarismChecker& checker, const std::string& dirPath) const {
+    std::string myPath = joinPath(dirPath, name);
+    for (ChildNode* cur = head; cur != nullptr; cur = cur->next) {
+        cur->node->registerWith(checker, myPath);
+    }
+}
+
+// Removes the child from the list WITHOUT deleting it (the caller keeps it).
+bool Directory::unlinkChild(FSNode* child) {
+    ChildNode* prev = nullptr;
+    ChildNode* cur  = head;
+    while (cur != nullptr) {
+        if (cur->node == child) {
+            if (prev == nullptr) head = cur->next;
+            else prev->next = cur->next;
+            delete cur;           // only the list cell, not the node itself
+            count--;
+            child->setParent(nullptr);
+            return true;
+        }
+        prev = cur;
+        cur  = cur->next;
+    }
+    return false;
+}
+
 void Directory::display() const {
     std::cout << "[D] " << name << "/\n";
 }

@@ -4,7 +4,8 @@
 // All commands MiniShell understands.
 static const char* const VALID_COMMANDS[] = {
     "pwd", "ls", "cd", "mkdir", "touch", "write",
-    "cat", "rm", "menu", "help", "exit", "quit"
+    "cat", "rm", "menu", "help", "exit", "quit",
+    "undo", "redo", "history"
 };
 static const int NUM_COMMANDS = sizeof(VALID_COMMANDS) / sizeof(VALID_COMMANDS[0]);
 
