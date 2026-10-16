@@ -4,18 +4,17 @@
 
 void Menu::display() const {
     std::cout <<
-        "\n================ MiniShell Menu ================\n"
-        "  1. Create folder         6. Delete file/folder\n"
-        "  2. Create file           7. List contents\n"
-        "  3. Write to file         8. Show current location\n"
-        "  4. Change directory      9. Help (command list)\n"
-        "  5. Show file content     0. Exit\n"
-        "------------------------------------------------\n"
-        "Enter a number, or type a command directly.\n"
-        "Type 'menu' anytime to see this again.\n"
-        "================================================\n\n";
+        "\n========== MiniShell Menu ==========\n"
+        "1. Create folder       8. Undo\n"
+        "2. Create file         9. Redo\n"
+        "3. Write to file       10. Command history\n"
+        "4. Change directory    11. Auto-correct\n"
+        "5. Show file content   12. Help\n"
+        "6. Delete file/folder  13. Exit\n"
+        "7. List contents\n"
+        "====================================\n"
+        "Enter a number or type a command.\n";
 }
-
 std::string Menu::trim(const std::string& s) const {
     size_t a = 0, b = s.size();
     while (a < b && std::isspace(static_cast<unsigned char>(s[a]))) a++;
