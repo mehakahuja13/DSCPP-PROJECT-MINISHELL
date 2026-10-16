@@ -116,25 +116,38 @@ Status FileSystem::touch(const std::string& path) {
     return Status::OK;
 }
 
+
 Status FileSystem::writeFile(const std::string& path, const std::string& text) {
     Directory* parentDir = nullptr;
     std::string leaf;
+
     Status s = splitParent(path, parentDir, leaf);
     if (s != Status::OK) return s;
 
     FSNode* existing = parentDir->findChild(leaf);
+
     if (existing == nullptr) {
         File* f = new File(leaf, parentDir);
         f->setContent(text);
-        parentDir->addChild(f);
+
+        if (!parentDir->addChild(f)) {
+            delete f;
+            return Status::ALREADY_EXISTS;
+        }
+
+        checker.indexFile(f->getId(), pathOf(f), text);
     } else if (existing->isDirectory()) {
         return Status::NOT_A_FILE;
     } else {
         File* f = static_cast<File*>(existing);
         f->setContent(text);
+
+        checker.indexFile(f->getId(), pathOf(f), text);
     }
+
     return Status::OK;
 }
+
 
 Status FileSystem::cat(const std::string& path, std::string& out) const {
     FSNode* node = resolve(path);
@@ -183,6 +196,21 @@ Status FileSystem::detach(const std::string& path, FSNode*& out) {
     Directory* parentDir = node->getParent();
     parentDir->unlinkChild(node);
     out = node;
+    return Status::OK;
+}
+Status FileSystem::checkContent(const std::string& path, const std::string& text, PlagiarismResult& result) const {
+    Directory* parentDir = nullptr;
+    std::string leaf;
+    Status s = splitParent(path, parentDir, leaf);
+    if (s != Status::OK) return s;
+
+    int selfId = 0;   // 0 = file does not exist yet
+    FSNode* existing = parentDir->findChild(leaf);
+    if (existing != nullptr) {
+        if (existing->isDirectory()) return Status::NOT_A_FILE;
+        selfId = static_cast<File*>(existing)->getId();
+    }
+    result = checker.check(text, selfId);
     return Status::OK;
 }
 

@@ -1,3 +1,4 @@
+#include "PlagiarismChecker.h"
 #ifndef FILESYSTEM_H
 #define FILESYSTEM_H
 
@@ -22,6 +23,7 @@ std::string statusMessage(Status s, const std::string& target);
 // Owns the whole tree and the current working directory.
 class FileSystem {
 private:
+PlagiarismChecker checker;
     Directory* root;
     Directory* cwd;
 
@@ -41,6 +43,7 @@ public:
     Status mkdir(const std::string& path);
     Status cd(const std::string& path);
     Status touch(const std::string& path);
+    Status checkContent(const std::string& path, const std::string& text, PlagiarismResult& result) const;
     Status writeFile(const std::string& path, const std::string& text);  // creates if missing
     Status cat(const std::string& path, std::string& out) const;
     Status ls(const std::string& path) const;
