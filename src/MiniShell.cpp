@@ -38,6 +38,53 @@ void MiniShell::report(Status s, const std::string& target) const {
     if (s != Status::OK) std::cout << "Error: " << statusMessage(s, target) << "\n";
 }
 
+// Shows the plagiarism result and decides whether the file may be saved.
+bool MiniShell::approveSave(const PlagiarismResult& r) const {
+    if (r.percent == 0) {
+        std::cout << "Plagiarism check: 0% - content is original.\n";
+        return true;
+    }
+    if (r.percent < PlagiarismChecker::THRESHOLD) {
+        std::cout << "Plagiarism check: " << r.percent << "% similar to '" << r.matchedPath << "'.\n";
+        return true;
+    }
+    if (r.percent == 100) {
+        std::cout << "WARNING: 100% plagiarism! This content is an exact copy of '"
+                  << r.matchedPath << "'.\n";
+    } else {
+        std::cout << "WARNING: " << r.percent << "% plagiarism detected. Most similar file: '"
+                  << r.matchedPath << "'.\n";
+    }
+    if (!confirm("Save anyway?")) {
+        std::cout << "Cancelled. File not saved.\n";
+        return false;
+    }
+    return true;
+}
+
+// Hands a command object to the CommandManager and reports the result.
+void MiniShell::runCommand(Command* cmd, const std::string& target) {
+    report(commands.run(cmd), target);
+}
+
+// Prints history oldest -> newest. The stack gives newest first, so every item is
+// moved to a temporary stack (which reverses the order) and then moved back.
+void MiniShell::showHistory() {
+    if (history.isEmpty()) {
+        std::cout << "No commands yet.\n";
+        return;
+    }
+    Stack<std::string> reversed;
+    std::string item;
+    while (history.pop(item)) reversed.push(item);
+
+    int number = 1;
+    while (reversed.pop(item)) {
+        std::cout << "  " << number++ << "  " << item << "\n";
+        history.push(item);
+    }
+}
+
 void MiniShell::printHelp() const {
     std::cout <<
         "Available commands:\n"
@@ -46,9 +93,12 @@ void MiniShell::printHelp() const {
         "  cd <path>             change directory (supports /, .., .)\n"
         "  mkdir <name>...       create directories\n"
         "  touch <name>...       create empty files\n"
-        "  write <file> <text>   write text into a file (creates it if missing)\n"
+        "  write <file> <text>   write text (checked for plagiarism first)\n"
         "  cat <file>...         show file contents\n"
         "  rm <name>...          remove files or directories\n"
+        "  undo                  undo the last mkdir / touch / write / rm\n"
+        "  redo                  redo what was undone\n"
+        "  history               list the commands typed so far\n"
         "  menu                  show the numbered menu\n"
         "  help                  show this list\n"
         "  exit                  quit MiniShell\n";
@@ -69,6 +119,9 @@ bool MiniShell::execute(const std::string& rawLine) {
 
     const std::string& cmd = tok[0];
 
+    // Remember valid commands (a mistyped one is stored only after it is corrected).
+    if (corrector.isValid(cmd)) history.push(line);
+
     if (cmd == "exit" || cmd == "quit") {
         return false;
     } else if (cmd == "menu") {
@@ -85,13 +138,42 @@ bool MiniShell::execute(const std::string& rawLine) {
         else report(fs.cd(tok[1]), tok[1]);
     } else if (cmd == "mkdir") {
         if (n < 2) { std::cout << "Usage: mkdir <name>...\n"; }
-        for (int i = 1; i < n; i++) report(fs.mkdir(tok[i]), tok[i]);
+        for (int i = 1; i < n; i++) {
+            std::string abs;
+            Status s = fs.absolutePath(tok[i], abs);
+            if (s != Status::OK) report(s, tok[i]);
+            else runCommand(new MkdirCommand(fs, abs), tok[i]);
+        }
     } else if (cmd == "touch") {
         if (n < 2) { std::cout << "Usage: touch <name>...\n"; }
-        for (int i = 1; i < n; i++) report(fs.touch(tok[i]), tok[i]);
+        for (int i = 1; i < n; i++) {
+            std::string abs;
+            Status s = fs.absolutePath(tok[i], abs);
+            if (s != Status::OK) report(s, tok[i]);
+            else runCommand(new TouchCommand(fs, abs), tok[i]);
+        }
     } else if (cmd == "write") {
         if (n < 3) { std::cout << "Usage: write <file> <text>\n"; }
-        else report(fs.writeFile(tok[1], restAfter(line, 2)), tok[1]);
+        else {
+            std::string text = restAfter(line, 2);
+            PlagiarismResult result;
+            Status s = fs.checkContent(tok[1], text, result);
+            if (s != Status::OK) {
+                report(s, tok[1]);
+            } else if (approveSave(result)) {
+                std::string abs;
+                fs.absolutePath(tok[1], abs);   // path was already validated by checkContent
+                Status w = commands.run(new WriteCommand(fs, abs, text));
+                report(w, tok[1]);
+                if (w == Status::OK) std::cout << "Saved '" << tok[1] << "'.\n";
+            }
+        }
+    } else if (cmd == "undo") {
+        std::cout << commands.undo() << "\n";
+    } else if (cmd == "redo") {
+        std::cout << commands.redo() << "\n";
+    } else if (cmd == "history") {
+        showHistory();
     } else if (cmd == "cat") {
         if (n < 2) { std::cout << "Usage: cat <file>...\n"; }
         for (int i = 1; i < n; i++) {
@@ -106,14 +188,17 @@ bool MiniShell::execute(const std::string& rawLine) {
             Status check = fs.canRemove(tok[i]);
             if (check != Status::OK) { report(check, tok[i]); continue; }
             FSNode* node = fs.resolve(tok[i]);
-            if (node != nullptr && node->isDirectory() &&
-                !static_cast<Directory*>(node)->isEmpty()) {
-                if (!confirm("'" + tok[i] + "' is not empty. Delete it and everything inside?")) {
+            if (node != nullptr && node->isDirectory()) {
+                const bool isEmpty = static_cast<Directory*>(node)->isEmpty();
+                const std::string question = isEmpty
+                    ? "Delete empty folder '" + tok[i] + "'?"
+                    : "'" + tok[i] + "' is not empty. Delete it and everything inside?";
+                if (!confirm(question)) {
                     std::cout << "Cancelled.\n";
                     continue;
                 }
             }
-            report(fs.remove(tok[i]), tok[i]);
+            runCommand(new RemoveCommand(fs, fs.pathOf(node)), tok[i]);
         }
     } else {
         std::string suggestion;
