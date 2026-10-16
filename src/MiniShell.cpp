@@ -38,30 +38,6 @@ void MiniShell::report(Status s, const std::string& target) const {
     if (s != Status::OK) std::cout << "Error: " << statusMessage(s, target) << "\n";
 }
 
-// Shows the plagiarism result and decides whether the file may be saved.
-bool MiniShell::approveSave(const PlagiarismResult& r) const {
-    if (r.percent == 0) {
-        std::cout << "Plagiarism check: 0% - content is original.\n";
-        return true;
-    }
-    if (r.percent < PlagiarismChecker::THRESHOLD) {
-        std::cout << "Plagiarism check: " << r.percent << "% similar to '" << r.matchedPath << "'.\n";
-        return true;
-    }
-    if (r.percent == 100) {
-        std::cout << "WARNING: 100% plagiarism! This content is an exact copy of '"
-                  << r.matchedPath << "'.\n";
-    } else {
-        std::cout << "WARNING: " << r.percent << "% plagiarism detected. Most similar file: '"
-                  << r.matchedPath << "'.\n";
-    }
-    if (!confirm("Save anyway?")) {
-        std::cout << "Cancelled. File not saved.\n";
-        return false;
-    }
-    return true;
-}
-
 // Hands a command object to the CommandManager and reports the result.
 void MiniShell::runCommand(Command* cmd, const std::string& target) {
     report(commands.run(cmd), target);
@@ -93,7 +69,7 @@ void MiniShell::printHelp() const {
         "  cd <path>             change directory (supports /, .., .)\n"
         "  mkdir <name>...       create directories\n"
         "  touch <name>...       create empty files\n"
-        "  write <file> <text>   write text (checked for plagiarism first)\n"
+        "  write <file> <text>   write text into a file (creates it if missing)\n"
         "  cat <file>...         show file contents\n"
         "  rm <name>...          remove files or directories\n"
         "  undo                  undo the last mkdir / touch / write / rm\n"
@@ -156,13 +132,10 @@ bool MiniShell::execute(const std::string& rawLine) {
         if (n < 3) { std::cout << "Usage: write <file> <text>\n"; }
         else {
             std::string text = restAfter(line, 2);
-            PlagiarismResult result;
-            Status s = fs.checkContent(tok[1], text, result);
-            if (s != Status::OK) {
-                report(s, tok[1]);
-            } else if (approveSave(result)) {
-                std::string abs;
-                fs.absolutePath(tok[1], abs);   // path was already validated by checkContent
+            std::string abs;
+            Status s = fs.absolutePath(tok[1], abs);
+            if (s != Status::OK) report(s, tok[1]);
+            else {
                 Status w = commands.run(new WriteCommand(fs, abs, text));
                 report(w, tok[1]);
                 if (w == Status::OK) std::cout << "Saved '" << tok[1] << "'.\n";

@@ -27,8 +27,6 @@ public:
 
     bool isDirectory() const override { return true; }
     void display() const override;
-    void unregisterFrom(PlagiarismChecker& checker) const override;
-    void registerWith(PlagiarismChecker& checker, const std::string& dirPath) const override;
 
     FSNode* findChild(const std::string& childName) const;
     bool    addChild(FSNode* child);                       // false if name already exists

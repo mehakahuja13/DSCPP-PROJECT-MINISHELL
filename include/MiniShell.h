@@ -24,7 +24,6 @@ private:
     std::string restAfter(const std::string& line, int skipTokens) const;
     bool        confirm(const std::string& question) const;
     void        report(Status s, const std::string& target) const;
-    bool        approveSave(const PlagiarismResult& r) const;
     void        runCommand(Command* cmd, const std::string& target);
     void        showHistory();
     void        printHelp() const;
