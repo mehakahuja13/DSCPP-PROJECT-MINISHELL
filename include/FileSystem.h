@@ -4,7 +4,6 @@
 #include <string>
 #include "Directory.h"
 #include "File.h"
-#include "PlagiarismChecker.h"
 
 enum class Status {
     OK,
@@ -25,7 +24,6 @@ class FileSystem {
 private:
     Directory* root;
     Directory* cwd;
-    PlagiarismChecker checker;
 
     bool   validName(const std::string& n) const;
     Status splitParent(const std::string& path, Directory*& parentDir, std::string& leaf) const;
@@ -43,8 +41,6 @@ public:
     Status mkdir(const std::string& path);
     Status cd(const std::string& path);
     Status touch(const std::string& path);
-    // Validates the path and compares the text with all saved files. Does NOT save.
-    Status checkContent(const std::string& path, const std::string& text, PlagiarismResult& result) const;
     Status writeFile(const std::string& path, const std::string& text);  // creates if missing
     Status cat(const std::string& path, std::string& out) const;
     Status ls(const std::string& path) const;

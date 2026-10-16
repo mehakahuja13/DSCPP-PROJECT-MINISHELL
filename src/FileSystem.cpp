@@ -116,22 +116,6 @@ Status FileSystem::touch(const std::string& path) {
     return Status::OK;
 }
 
-Status FileSystem::checkContent(const std::string& path, const std::string& text, PlagiarismResult& result) const {
-    Directory* parentDir = nullptr;
-    std::string leaf;
-    Status s = splitParent(path, parentDir, leaf);
-    if (s != Status::OK) return s;
-
-    int selfId = 0;   // 0 = file does not exist yet
-    FSNode* existing = parentDir->findChild(leaf);
-    if (existing != nullptr) {
-        if (existing->isDirectory()) return Status::NOT_A_FILE;
-        selfId = static_cast<File*>(existing)->getId();
-    }
-    result = checker.check(text, selfId);
-    return Status::OK;
-}
-
 Status FileSystem::writeFile(const std::string& path, const std::string& text) {
     Directory* parentDir = nullptr;
     std::string leaf;
@@ -143,13 +127,11 @@ Status FileSystem::writeFile(const std::string& path, const std::string& text) {
         File* f = new File(leaf, parentDir);
         f->setContent(text);
         parentDir->addChild(f);
-        checker.indexFile(f->getId(), pathOf(f), text);
     } else if (existing->isDirectory()) {
         return Status::NOT_A_FILE;
     } else {
         File* f = static_cast<File*>(existing);
         f->setContent(text);
-        checker.indexFile(f->getId(), pathOf(f), text);
     }
     return Status::OK;
 }
@@ -187,24 +169,24 @@ Status FileSystem::absolutePath(const std::string& path, std::string& out) const
     std::string leaf;
     Status s = splitParent(path, parentDir, leaf);
     if (s != Status::OK) return s;
-    out = FSNode::joinPath(pathOf(parentDir), leaf);
+    const std::string parent = pathOf(parentDir);
+    out = (parent == "/" ? "" : parent) + "/" + leaf;
     return Status::OK;
 }
 
-// Takes the node out of the tree (and out of the plagiarism index) but keeps it alive.
+// Takes the node out of the tree but keeps it alive for undo.
 Status FileSystem::detach(const std::string& path, FSNode*& out) {
     Status s = canRemove(path);
     if (s != Status::OK) return s;
 
     FSNode* node = resolve(path);
     Directory* parentDir = node->getParent();
-    node->unregisterFrom(checker);
     parentDir->unlinkChild(node);
     out = node;
     return Status::OK;
 }
 
-// Puts a detached node back under 'parentPath' and re-indexes its files.
+// Puts a detached node back under 'parentPath'.
 Status FileSystem::attach(const std::string& parentPath, FSNode* node) {
     FSNode* p = resolve(parentPath);
     if (p == nullptr) return Status::NOT_FOUND;
@@ -212,7 +194,6 @@ Status FileSystem::attach(const std::string& parentPath, FSNode* node) {
 
     Directory* dir = static_cast<Directory*>(p);
     if (!dir->addChild(node)) return Status::ALREADY_EXISTS;
-    node->registerWith(checker, pathOf(dir));
     return Status::OK;
 }
 
