@@ -57,7 +57,6 @@ const Entry ENTRIES[] = {
       "Lists every pair of readable files with 50% or more similarity." },
     { "PLAGIARISM", "diff", "diff <file1> <file2>", "Show the line differences",
       "Lines starting with - exist only in the first file, lines starting with + only in the second (longest common subsequence)." },
-
     { "SECURITY", "lock", "lock <name>...", "Make files or folders read-only",
       "A locked file cannot be written, deleted, moved or encrypted. A folder containing a locked item cannot be deleted. Can be undone." },
     { "SECURITY", "unlock", "unlock <name>...", "Remove the lock", "Can be undone." },
