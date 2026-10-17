@@ -6,6 +6,11 @@ HashTable::HashTable() {
 }
 
 HashTable::~HashTable() {
+    clear();
+    delete[] buckets;
+}
+
+void HashTable::clear() {
     for (int i = 0; i < BUCKETS; i++) {
         Entry* e = buckets[i];
         while (e != nullptr) {
@@ -19,8 +24,8 @@ HashTable::~HashTable() {
             delete e;
             e = nextEntry;
         }
+        buckets[i] = nullptr;
     }
-    delete[] buckets;
 }
 
 // djb2 string hash.
