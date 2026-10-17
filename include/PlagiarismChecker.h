@@ -53,6 +53,10 @@ public:
 
     void indexFile(int id, const std::string& path, const std::string& text);  // replaces old entry
     void removeFile(int id);
+    void clear();   // forget every file (used after load)
+
+    // How much of text 'a' (in % of its 3-word groups) also appears in text 'b'.
+    static int similarity(const std::string& a, const std::string& b);
 };
 
 #endif

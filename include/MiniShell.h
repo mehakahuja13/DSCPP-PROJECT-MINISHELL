@@ -18,6 +18,8 @@ private:
     Stack<std::string> history;       // every valid command typed (top = newest)
     CommandManager     commands;      // undo / redo stacks
     Stack<std::string> backStack;     // folders visited before the current one
+    int                plagiarismWarnings;
+    int                warningsOverridden;
 
     static const int MAX_TOKENS = 32;
     typedef const std::string Tok;    // handlers receive the words of the line

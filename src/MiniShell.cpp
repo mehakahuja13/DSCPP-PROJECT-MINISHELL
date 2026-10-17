@@ -1,12 +1,13 @@
 #include "MiniShell.h"
 #include "FileTools.h"
+#include "CompareTools.h"
 #include "Persistence.h"
 #include "Manual.h"
 #include <iostream>
 #include <fstream>
 #include <cctype>
 
-MiniShell::MiniShell() {}
+MiniShell::MiniShell() : plagiarismWarnings(0), warningsOverridden(0) {}
 
 // ============================================================ small helpers
 
@@ -58,15 +59,28 @@ void MiniShell::report(Status s, const std::string& target) const {
 
 // Shows the plagiarism result and decides whether the file may be saved.
 bool MiniShell::approveSave(const PlagiarismResult& r) {
-    if (r.percent < PlagiarismChecker::THRESHOLD) return true;
+    if (r.percent == 0) {
+        std::cout << "Plagiarism check: 0% - content is original.\n";
+        return true;
+    }
+    if (r.percent < PlagiarismChecker::THRESHOLD) {
+        std::cout << "Plagiarism check: " << r.percent << "% similar to '" << r.matchedPath << "'.\n";
+        return true;
+    }
 
-    std::cout << "\nWARNING: Possible plagiarism detected!\n";
-    std::cout << "Similarity: " << r.percent << "%\n";
-    std::cout << "Matching file: " << r.matchedPath << "\n";
-    if (!confirm("Save this content anyway?")) {
-        std::cout << "Save cancelled.\n";
+    plagiarismWarnings++;
+    if (r.percent == 100) {
+        std::cout << "WARNING: 100% plagiarism! This content is an exact copy of '"
+                  << r.matchedPath << "'.\n";
+    } else {
+        std::cout << "WARNING: " << r.percent << "% plagiarism detected. Most similar file: '"
+                  << r.matchedPath << "'.\n";
+    }
+    if (!confirm("Save anyway?")) {
+        std::cout << "Cancelled. File not saved.\n";
         return false;
     }
+    warningsOverridden++;
     return true;
 }
 
@@ -380,6 +394,8 @@ void MiniShell::cmdStats() {
               << "   Bookmarks: " << fs.getBookmarks().size() << "\n";
     std::cout << "Commands typed: " << history.size() << "   Undo available: " << commands.undoCount()
               << "   Redo available: " << commands.redoCount() << "\n";
+    std::cout << "Plagiarism warnings: " << plagiarismWarnings
+              << " (saved anyway: " << warningsOverridden << ")\n";
 }
 
 void MiniShell::cmdSave(Tok tok[], int n) {
@@ -519,6 +535,21 @@ bool MiniShell::execute(const std::string& rawLine) {
         } else {
             std::string target = (n > 2) ? tok[2] : "";
             report(FileTools::grep(fs, tok[1], target), target);
+        }
+    // ---- plagiarism ----
+    } else if (cmd == "compare") {
+        if (n != 3) std::cout << "Usage: compare <file1> <file2>\n";
+        else {
+            Status s = CompareTools::compare(fs, tok[1], tok[2]);
+            if (s != Status::OK) report(s, (fs.resolve(tok[1]) == nullptr || s == Status::NOT_FOUND) ? tok[1] : tok[2]);
+        }
+    } else if (cmd == "scan") {
+        CompareTools::scan(fs);
+    } else if (cmd == "diff") {
+        if (n != 3) std::cout << "Usage: diff <file1> <file2>\n";
+        else {
+            Status s = CompareTools::diff(fs, tok[1], tok[2]);
+            if (s != Status::OK) report(s, tok[1] + " / " + tok[2]);
         }
     // ---- security ----
     } else if (cmd == "lock") {

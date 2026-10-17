@@ -393,6 +393,7 @@ public:
 }
 
 void FileSystem::reindexAll() {
+    checker.clear();
     IndexVisitor visitor(checker);
     root->accept(visitor, "/");
 }
@@ -400,9 +401,6 @@ void FileSystem::reindexAll() {
 // Takes over the tree and bookmarks of 'other'. 'other' ends up holding our old
 // tree, which is freed when 'other' is destroyed.
 void FileSystem::adopt(FileSystem& other) {
-    // The current checker has no clear() method, so remove the old tree's
-    // entries through its normal unregister hook before replacing the tree.
-    root->unregisterFrom(checker);
     std::swap(root, other.root);
     cwd = other.cwd;            // other.cwd points into the tree we now own
     other.cwd = other.root;
