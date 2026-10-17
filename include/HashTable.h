@@ -42,6 +42,7 @@ public:
     bool contains(const std::string& key) const;
     const OwnerNode* ownersOf(const std::string& key) const;   // nullptr if key absent
     void removeOwner(int ownerId);                      // removes owner from every key
+    void clear();                                       // forget everything
 };
 
 #endif
