@@ -67,4 +67,67 @@ public:
     std::string describe() const override;
 };
 
+// cp: undo deletes the copy again.
+class CopyCommand : public Command {
+private:
+    FileSystem& fs;
+    std::string src;
+    std::string dst;
+    std::string created;     // absolute path of the copy
+    bool        applied;
+public:
+    CopyCommand(FileSystem& f, const std::string& absSrc, const std::string& absDst);
+    Status      execute() override;
+    bool        undo() override;
+    bool        isApplied() const override { return applied; }
+    std::string describe() const override;
+};
+
+// mv: undo moves the item back to where it came from.
+class MoveCommand : public Command {
+private:
+    FileSystem& fs;
+    std::string src;
+    std::string dst;
+    std::string finalPath;   // where the item ended up
+    bool        applied;
+public:
+    MoveCommand(FileSystem& f, const std::string& absSrc, const std::string& absDst);
+    Status      execute() override;
+    bool        undo() override;
+    bool        isApplied() const override { return applied; }
+    std::string describe() const override;
+};
+
+// lock / unlock: undo switches the lock back.
+class LockCommand : public Command {
+private:
+    FileSystem& fs;
+    std::string path;
+    bool        lockIt;
+    bool        applied;
+public:
+    LockCommand(FileSystem& f, const std::string& absPath, bool lockValue);
+    Status      execute() override;
+    bool        undo() override;
+    bool        isApplied() const override { return applied; }
+    std::string describe() const override;
+};
+
+// encrypt / decrypt: undo does the opposite (the password is kept only in memory).
+class EncryptCommand : public Command {
+private:
+    FileSystem& fs;
+    std::string path;
+    std::string password;
+    bool        encryptIt;
+    bool        applied;
+public:
+    EncryptCommand(FileSystem& f, const std::string& absPath, const std::string& pw, bool encryptValue);
+    Status      execute() override;
+    bool        undo() override;
+    bool        isApplied() const override { return applied; }
+    std::string describe() const override;
+};
+
 #endif

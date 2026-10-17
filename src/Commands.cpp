@@ -90,3 +90,75 @@ bool RemoveCommand::undo() {
 }
 
 std::string RemoveCommand::describe() const { return "rm " + path; }
+
+// ---------------- CopyCommand ----------------
+CopyCommand::CopyCommand(FileSystem& f, const std::string& absSrc, const std::string& absDst)
+    : fs(f), src(absSrc), dst(absDst), applied(false) {}
+
+Status CopyCommand::execute() {
+    Status s = fs.copy(src, dst, created);
+    applied = (s == Status::OK);
+    return s;
+}
+
+bool CopyCommand::undo() {
+    return fs.remove(created) == Status::OK;
+}
+
+std::string CopyCommand::describe() const { return "cp " + src + " " + dst; }
+
+// ---------------- MoveCommand ----------------
+MoveCommand::MoveCommand(FileSystem& f, const std::string& absSrc, const std::string& absDst)
+    : fs(f), src(absSrc), dst(absDst), applied(false) {}
+
+Status MoveCommand::execute() {
+    Status s = fs.move(src, dst, finalPath);
+    applied = (s == Status::OK);
+    return s;
+}
+
+// Moving the item from its new place back to the old path restores it
+// (the old path no longer exists, so it is treated as "parent folder + name").
+bool MoveCommand::undo() {
+    std::string back;
+    return fs.move(finalPath, src, back) == Status::OK;
+}
+
+std::string MoveCommand::describe() const { return "mv " + src + " " + dst; }
+
+// ---------------- LockCommand ----------------
+LockCommand::LockCommand(FileSystem& f, const std::string& absPath, bool lockValue)
+    : fs(f), path(absPath), lockIt(lockValue), applied(false) {}
+
+Status LockCommand::execute() {
+    bool changed = false;
+    Status s = fs.setLocked(path, lockIt, changed);
+    applied = (s == Status::OK && changed);
+    return s;
+}
+
+bool LockCommand::undo() {
+    if (!applied) return true;
+    bool changed = false;
+    return fs.setLocked(path, !lockIt, changed) == Status::OK;
+}
+
+std::string LockCommand::describe() const { return std::string(lockIt ? "lock " : "unlock ") + path; }
+
+// ---------------- EncryptCommand ----------------
+EncryptCommand::EncryptCommand(FileSystem& f, const std::string& absPath, const std::string& pw, bool encryptValue)
+    : fs(f), path(absPath), password(pw), encryptIt(encryptValue), applied(false) {}
+
+Status EncryptCommand::execute() {
+    Status s = encryptIt ? fs.encryptFile(path, password) : fs.decryptFile(path, password);
+    applied = (s == Status::OK);
+    return s;
+}
+
+bool EncryptCommand::undo() {
+    if (!applied) return true;
+    Status s = encryptIt ? fs.decryptFile(path, password) : fs.encryptFile(path, password);
+    return s == Status::OK;
+}
+
+std::string EncryptCommand::describe() const { return std::string(encryptIt ? "encrypt " : "decrypt ") + path; }

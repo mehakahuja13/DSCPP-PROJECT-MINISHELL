@@ -5,7 +5,10 @@
 static const char* const VALID_COMMANDS[] = {
     "pwd", "ls", "cd", "mkdir", "touch", "write",
     "cat", "rm", "menu", "help", "exit", "quit",
-    "undo", "redo", "history"
+    "undo", "redo", "history",
+    "cp", "mv", "tree", "info", "du", "find", "grep", "wc", "man", "back",
+    "append", "lock", "unlock", "encrypt", "decrypt",
+    "save", "load", "bookmark", "goto", "stats"
 };
 static const int NUM_COMMANDS = sizeof(VALID_COMMANDS) / sizeof(VALID_COMMANDS[0]);
 
