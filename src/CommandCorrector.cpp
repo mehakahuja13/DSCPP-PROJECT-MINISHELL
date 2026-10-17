@@ -46,9 +46,12 @@ int CommandCorrector::distance(const std::string& a, const std::string& b) const
 }
 
 bool CommandCorrector::isValid(const std::string& cmd) const {
+    std::string word = toLower(cmd);
+
     for (int i = 0; i < NUM_COMMANDS; i++) {
-        if (cmd == VALID_COMMANDS[i]) return true;
+        if (word == VALID_COMMANDS[i]) return true;
     }
+
     return false;
 }
 

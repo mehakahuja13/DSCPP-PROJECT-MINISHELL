@@ -8,10 +8,12 @@
 #include "Stack.h"
 #include "CommandManager.h"
 #include "Commands.h"
+#include "PlagiarismChecker.h"
 
 // The command-line front end: reads a line, splits it, calls FileSystem.
 class MiniShell {
 private:
+    bool approveSave(const PlagiarismResult& r) const;
     FileSystem fs;
     Menu       menu;
     CommandCorrector corrector;

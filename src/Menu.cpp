@@ -47,6 +47,7 @@ std::string Menu::askName(const std::string& prompt) const {
     return ans;
 }
 
+
 bool Menu::toCommand(const std::string& input, std::string& commandLine) const {
     commandLine.clear();
     std::string t = trim(input);
@@ -64,7 +65,10 @@ bool Menu::toCommand(const std::string& input, std::string& commandLine) const {
         name = askName("Enter file name: ");
         if (name.empty()) return true;
         text = askLine("Enter text to write: ");
-        if (text.empty()) { std::cout << "Nothing to write.\n"; return true; }
+        if (text.empty()) {
+            std::cout << "Nothing to write.\n";
+            return true;
+        }
         commandLine = "write " + name + " " + text;
     } else if (t == "4") {
         name = askName("Enter folder path (.. to go up): ");
@@ -78,13 +82,22 @@ bool Menu::toCommand(const std::string& input, std::string& commandLine) const {
     } else if (t == "7") {
         commandLine = "ls";
     } else if (t == "8") {
-        commandLine = "pwd";
+        commandLine = "undo";
     } else if (t == "9") {
+        commandLine = "redo";
+    } else if (t == "10") {
+        commandLine = "history";
+    } else if (t == "11") {
         commandLine = "help";
-    } else if (t == "0") {
+        std::cout << "Auto-correct works when you type a command incorrectly.\n";
+    } else if (t == "12") {
+        commandLine = "help";
+    } else if (t == "13") {
         commandLine = "exit";
     } else {
         std::cout << "Invalid menu option. Type 'menu' to see the list.\n";
     }
+
     return true;
 }
+
