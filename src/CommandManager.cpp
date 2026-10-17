@@ -21,6 +21,11 @@ Status CommandManager::run(Command* cmd) {
     return s;
 }
 
+void CommandManager::clearAll() {
+    deleteAll(undoStack);
+    deleteAll(redoStack);
+}
+
 std::string CommandManager::undo() {
     Command* cmd = nullptr;
     if (!undoStack.pop(cmd)) return "Nothing to undo.";

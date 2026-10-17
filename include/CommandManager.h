@@ -28,6 +28,10 @@ public:
 
     std::string undo();   // returns a message to show the user
     std::string redo();
+
+    int  undoCount() const { return undoStack.size(); }
+    int  redoCount() const { return redoStack.size(); }
+    void clearAll();      // forget all undo / redo history (used after load)
 };
 
 #endif
