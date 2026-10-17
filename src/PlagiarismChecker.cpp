@@ -4,11 +4,43 @@
 PlagiarismChecker::PlagiarismChecker() : records(nullptr) {}
 
 PlagiarismChecker::~PlagiarismChecker() {
+    clear();
+}
+
+void PlagiarismChecker::clear() {
+    index.clear();
     while (records != nullptr) {
         FileRecord* nextRec = records->next;
         delete records;
         records = nextRec;
     }
+}
+
+int PlagiarismChecker::similarity(const std::string& a, const std::string& b) {
+    PlagiarismChecker helper;   // only used for its text-splitting functions
+    std::string* groupsA = nullptr;
+    std::string* groupsB = nullptr;
+    int na = helper.buildShingles(a, groupsA);
+    int nb = helper.buildShingles(b, groupsB);
+
+    int percent = 0;
+    if (na > 0 && nb > 0) {
+        HashTable inB;
+        for (int j = 0; j < nb; j++) inB.add(groupsB[j], 1);
+
+        HashTable seen;
+        int distinct = 0, found = 0;
+        for (int i = 0; i < na; i++) {
+            if (seen.contains(groupsA[i])) continue;
+            seen.add(groupsA[i], 1);
+            distinct++;
+            if (inB.contains(groupsA[i])) found++;
+        }
+        percent = found * 100 / distinct;
+    }
+    delete[] groupsA;
+    delete[] groupsB;
+    return percent;
 }
 
 // Lower-case; every run of non-letter/digit characters becomes a single space.
