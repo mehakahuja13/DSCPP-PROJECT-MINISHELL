@@ -8,7 +8,7 @@ class Directory;
 
 // VISITOR design pattern: walk the whole tree and run some action on every
 // file / folder without adding that action to the File and Directory classes.
-// (find, grep, du, stats and save use this.)
+// (find, grep, du, stats, scan, save and the plagiarism re-index all use this.)
 class NodeVisitor {
 public:
     virtual ~NodeVisitor() {}
