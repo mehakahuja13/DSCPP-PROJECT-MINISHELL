@@ -1,20 +1,20 @@
+/* Declares extra file utilities such as tree display, search and size information. */
+
 #ifndef FILETOOLS_H
 #define FILETOOLS_H
 
 #include <string>
 #include "FileSystem.h"
 
-// Totals collected by walking a part of the tree.
 struct TreeStats {
     int    files;
-    int    dirs;       // folders INSIDE the starting point (the starting folder itself is not counted)
+    int    dirs;
     size_t bytes;
     int    locked;
     int    encrypted;
     TreeStats() : files(0), dirs(0), bytes(0), locked(0), encrypted(0) {}
 };
 
-// Read-only commands that look at the tree. Most of them walk it with a NodeVisitor.
 class FileTools {
 public:
     static TreeStats collect(const FileSystem& fs, const FSNode* start);

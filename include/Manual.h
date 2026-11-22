@@ -1,15 +1,15 @@
+/* Declares the built-in help pages for MiniShell commands. */
+
 #ifndef MANUAL_H
 #define MANUAL_H
 
 #include <string>
 
-// One table describes every command. 'help' lists them all, 'man <command>'
-// shows the details of one, so the two can never disagree.
 class Manual {
 public:
-    static void printHelp();                          // all commands, grouped
-    static void printNames();                         // just the names
-    static bool printEntry(const std::string& name);  // false if there is no such command
+    static void printHelp();
+    static void printNames();
+    static bool printEntry(const std::string& name);
 };
 
 #endif

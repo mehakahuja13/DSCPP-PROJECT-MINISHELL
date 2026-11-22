@@ -1,3 +1,5 @@
+/* Defines the main shell controller and the helpers used to handle commands. */
+
 #ifndef MINISHELL_H
 #define MINISHELL_H
 
