@@ -1,3 +1,5 @@
+/* Contains the command reference and the help text shown inside MiniShell. */
+
 #include "Manual.h"
 #include <iostream>
 
@@ -22,6 +24,8 @@ const Entry ENTRIES[] = {
       "Adds the text as a new last line and keeps the old content. The whole new content is checked for plagiarism." },
     { "FILES AND FOLDERS", "cat", "cat <file>...", "Show file content",
       "An encrypted file asks for its password first (the file stays encrypted)." },
+    { "FILES AND FOLDERS", "show", "show <file>...", "Show file content (same as cat)",
+      "Easier name for cat. An encrypted file asks for its password first." },
     { "FILES AND FOLDERS", "rm", "rm <name>...", "Delete files or folders",
       "Asks before deleting a folder that is not empty. The root, your current folder and locked items cannot be deleted. 'undo' brings deleted items back." },
     { "FILES AND FOLDERS", "cp", "cp <source> <destination>", "Copy a file or folder",
@@ -57,6 +61,7 @@ const Entry ENTRIES[] = {
       "Lists every pair of readable files with 50% or more similarity." },
     { "PLAGIARISM", "diff", "diff <file1> <file2>", "Show the line differences",
       "Lines starting with - exist only in the first file, lines starting with + only in the second (longest common subsequence)." },
+
     { "SECURITY", "lock", "lock <name>...", "Make files or folders read-only",
       "A locked file cannot be written, deleted, moved or encrypted. A folder containing a locked item cannot be deleted. Can be undone." },
     { "SECURITY", "unlock", "unlock <name>...", "Remove the lock", "Can be undone." },
@@ -76,7 +81,7 @@ const Entry ENTRIES[] = {
     { "HISTORY AND SYSTEM", "load", "load [file]", "Load a saved file",
       "Replaces everything in MiniShell with the saved data. The undo history is cleared." },
     { "HISTORY AND SYSTEM", "menu", "menu [letters]", "Show or search the menu",
-      "'menu' shows the numbered menu (A-Z). 'menu cr' lists the options starting with cr. You can also just type letters like cr." },
+      "'menu' shows the menu (A-Z). 'menu cr' lists the options starting with cr. You can also just type what you want, like 'change directory' or 'create file notes.txt', or a few letters like cr." },
     { "HISTORY AND SYSTEM", "man", "man [command]", "Show the manual of a command", "Without a name it lists all commands." },
     { "HISTORY AND SYSTEM", "help", "help", "List all commands", "" },
     { "HISTORY AND SYSTEM", "exit", "exit", "Quit MiniShell", "'quit' works too." }
@@ -84,7 +89,7 @@ const Entry ENTRIES[] = {
 
 const int COUNT = sizeof(ENTRIES) / sizeof(ENTRIES[0]);
 
-} // namespace
+}
 
 void Manual::printHelp() {
     const char* currentSection = "";

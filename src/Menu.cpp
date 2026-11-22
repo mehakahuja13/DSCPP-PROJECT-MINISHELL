@@ -1,13 +1,9 @@
+/* Implements the menu shown at startup and translates menu choices into commands. */
+
 #include "Menu.h"
 #include <iostream>
 #include <cctype>
 
-// One row per menu option. 'keywords' are extra words that also find the option
-// (command names and synonyms). The last row (Exit) is menu number 0; all other
-// rows are sorted A-Z by 'label' when the menu is created, so new rows can be
-// added anywhere in this table.
-//   prompt1 / prompt2 : questions to ask (nullptr = not needed)
-//   textSecond        : the second answer may contain spaces (write, append)
 struct MenuItem {
     const char* label;
     const char* keywords;
@@ -36,7 +32,7 @@ static const MenuItem ITEMS[] = {
     { "Go to bookmark",                 "goto jump bookmark",              "goto",          "Enter bookmark name: ", nullptr, false },
     { "File or folder info",            "info details properties",         "info",          "Enter file/folder name: ", nullptr, false },
     { "Folder size",                    "du size space usage",             "du",            nullptr, nullptr, false },
-    { "Count lines and words",          "wc characters",             "wc",            "Enter file name: ", nullptr, false },
+    { "Count lines and words",          "wc characters",                    "wc",            "Enter file name: ", nullptr, false },
     { "Find file by name",              "find search locate",              "find",          "Enter part of the name: ", nullptr, false },
     { "Search text inside files",       "grep find word",                  "grep",          "Enter the word to search: ", nullptr, false },
     { "Compare two files",              "compare similarity plagiarism",   "compare",       "Enter first file: ", "Enter second file: ", false },
@@ -59,25 +55,13 @@ static const MenuItem ITEMS[] = {
 };
 static const int NUM_ITEMS = sizeof(ITEMS) / sizeof(ITEMS[0]);
 
-// Splits 'text' on spaces and inserts every word into the trie.
-static void insertWords(Trie& trie, const std::string& text, int id) {
-    std::string word;
-    for (size_t i = 0; i <= text.size(); i++) {
-        if (i == text.size() || text[i] == ' ' || text[i] == '/' || text[i] == '(' || text[i] == ')') {
-            if (!word.empty()) trie.insert(word, id);
-            word.clear();
-        } else {
-            word += static_cast<char>(std::tolower(static_cast<unsigned char>(text[i])));
-        }
-    }
-}
-
 Menu::Menu() {
-    exitIndex = NUM_ITEMS - 1;
-    count = NUM_ITEMS - 1;
+    count = NUM_ITEMS;
+    for (int i = 0; i < NUM_ITEMS; i++) order[i] = i;
 
-    // Sort the numbered options A-Z by label (insertion sort on the index list).
-    for (int i = 0; i < count; i++) {
+    // A-Z by label, with Exit always last.
+    int exitIndex = NUM_ITEMS - 1;
+    for (int i = 0; i < exitIndex; i++) {
         int idx = i;
         int j = i - 1;
         while (j >= 0 && toLower(ITEMS[order[j]].label) > toLower(ITEMS[idx].label)) {
@@ -86,13 +70,7 @@ Menu::Menu() {
         }
         order[j + 1] = idx;
     }
-    for (int k = 0; k < count; k++) numberOf[order[k]] = k + 1;
-    numberOf[exitIndex] = 0;
-
-    for (int i = 0; i < NUM_ITEMS; i++) {
-        insertWords(trie, ITEMS[i].label, i);
-        insertWords(trie, ITEMS[i].keywords, i);
-    }
+    order[exitIndex] = exitIndex;
 }
 
 std::string Menu::trim(const std::string& s) const {
@@ -110,12 +88,40 @@ std::string Menu::toLower(const std::string& s) const {
     return r;
 }
 
-bool Menu::isNumber(const std::string& s) const {
-    if (s.empty()) return false;
-    for (size_t i = 0; i < s.size(); i++) {
-        if (!std::isdigit(static_cast<unsigned char>(s[i]))) return false;
+// Lower-case, trimmed, with repeated spaces collapsed to one.
+std::string Menu::normalize(const std::string& s) const {
+    std::string t = toLower(trim(s)), r;
+    bool space = false;
+    for (size_t i = 0; i < t.size(); i++) {
+        if (std::isspace(static_cast<unsigned char>(t[i]))) {
+            space = true;
+        } else {
+            if (space && !r.empty()) r += ' ';
+            space = false;
+            r += t[i];
+        }
     }
-    return true;
+    return r;
+}
+
+// The words a person types to pick an option: its label without any "(...)" note.
+std::string Menu::phraseOf(int tableIndex) const {
+    std::string label = ITEMS[tableIndex].label;
+    size_t p = label.find('(');
+    if (p != std::string::npos) label = label.substr(0, p);
+    return normalize(label);
+}
+
+bool Menu::hasKeyword(int tableIndex, const std::string& word) const {
+    std::string kw = std::string(ITEMS[tableIndex].keywords) + " ";
+    size_t start = 0;
+    while (start < kw.size()) {
+        size_t e = kw.find(' ', start);
+        if (e == std::string::npos) break;
+        if (e > start && kw.compare(start, e - start, word) == 0) return true;
+        start = e + 1;
+    }
+    return false;
 }
 
 std::string Menu::askLine(const std::string& prompt) const {
@@ -125,7 +131,6 @@ std::string Menu::askLine(const std::string& prompt) const {
     return trim(ans);
 }
 
-// Names are used as single command words, so spaces are not allowed.
 std::string Menu::askName(const std::string& prompt) const {
     std::string ans = askLine(prompt);
     if (ans.find_first_of(" \t") != std::string::npos) {
@@ -142,113 +147,246 @@ static std::string padLabel(const std::string& s, size_t width) {
 void Menu::display() const {
     std::cout << "\n==================== MiniShell Menu (A-Z) ====================\n";
 
-    int rows = (count + 1) / 2;   // two columns, reading down: 1..rows | rows+1..count
+    int rows = (count + 1) / 2;
     for (int r = 0; r < rows; r++) {
-        int left  = r + 1;
-        int right = r + 1 + rows;
+        int left  = r;
+        int right = r + rows;
 
-        std::string l = (left < 10 ? "  " : " ") + std::to_string(left) + ". " + ITEMS[order[left - 1]].label;
-        std::cout << padLabel(l, 36);
-        if (right <= count) {
-            std::cout << (right < 10 ? "  " : " ") << right << ". " << ITEMS[order[right - 1]].label;
-        }
+        std::cout << padLabel(std::string("  - ") + ITEMS[order[left]].label, 36);
+        if (right < count) std::cout << "  - " << ITEMS[order[right]].label;
         std::cout << "\n";
     }
-    std::cout << "  0. Exit\n"
-        "--------------------------------------------------------------\n"
-        "Enter a number, or type a command directly.\n"
-        "Type a few letters (like cr) to list matching options and pick one.\n"
+    std::cout << "--------------------------------------------------------------\n"
+        "Just type what you want, like: change directory\n"
+        "You can add the name too: create file notes.txt\n"
+        "Type a few letters (like cr) to see matching options.\n"
         "Type 'menu' to see this list again, 'help' for all commands.\n"
         "==============================================================\n\n";
 }
 
-// Marks every option having a word that starts with 'prefix'; returns how many.
-int Menu::collectMatches(const std::string& prefix, bool matched[]) const {
+// An option matches if its name starts with what was typed, or if the typed word is one of its keywords.
+int Menu::collectMatches(const std::string& typed, bool matched[]) const {
     for (int i = 0; i < NUM_ITEMS; i++) matched[i] = false;
-    int n = 0;
-    for (const Trie::IdNode* node = trie.find(toLower(prefix)); node != nullptr; node = node->next) {
-        matched[node->id] = true;
-        n++;
+
+    std::string t = normalize(typed);
+    if (t.empty()) return 0;
+
+    int matches = 0;
+    for (int i = 0; i < NUM_ITEMS; i++) {
+        std::string phrase = phraseOf(i);
+        bool ok = phrase.size() >= t.size() && phrase.compare(0, t.size(), t) == 0;
+        if (!ok && t.find(' ') == std::string::npos && t.size() >= 3) ok = hasKeyword(i, t);
+        if (ok) {
+            matched[i] = true;
+            matches++;
+        }
     }
-    return n;
+    return matches;
 }
 
-int Menu::countMatches(const std::string& prefix) const {
-    if (prefix.empty()) return 0;
+int Menu::countMatches(const std::string& typed) const {
+    if (typed.empty()) return 0;
     bool matched[MAX_ITEMS];
-    return collectMatches(prefix, matched);
+    return collectMatches(typed, matched);
 }
 
-void Menu::printItem(int tableIndex) const {
-    int num = numberOf[tableIndex];
-    std::cout << "  " << (num < 10 ? " " : "") << num << ". " << ITEMS[tableIndex].label << "\n";
-}
-
-void Menu::pick(const std::string& prefix, std::string& commandLine) const {
+void Menu::pick(const std::string& typed, std::string& commandLine) const {
     commandLine.clear();
+    std::string current = typed;
 
-    bool matched[MAX_ITEMS];
-    int n = collectMatches(prefix, matched);
-    if (n == 0) {
-        std::cout << "No menu option starts with '" << prefix << "'. Type 'menu' to see all options.\n";
-        return;
-    }
+    for (int attempt = 0; attempt < 4; attempt++) {
+        bool matched[MAX_ITEMS];
+        int n = collectMatches(current, matched);
+        if (n == 0) {
+            std::cout << "I couldn't find an option for '" << current << "'. Type 'menu' to see all options.\n";
+            return;
+        }
 
-    std::cout << "Menu options starting with '" << prefix << "' (A-Z):\n";
-    for (int k = 0; k < count; k++) {          // numbers 1..count are already in A-Z order
-        if (matched[order[k]]) printItem(order[k]);
-    }
-    if (matched[exitIndex]) printItem(exitIndex);
+        int only = -1;
+        for (int k = 0; k < count; k++) if (matched[order[k]]) only = order[k];
 
-    std::string ans = askLine("Type the number to select it (or press Enter to cancel): ");
-    if (ans.empty()) {
-        std::cout << "Cancelled.\n";
-        return;
+        if (n == 1) {
+            build(only, "", commandLine);
+            return;
+        }
+
+        std::cout << "Options matching '" << current << "' (A-Z):\n";
+        for (int k = 0; k < count; k++) {
+            if (matched[order[k]]) std::cout << "  - " << ITEMS[order[k]].label << "\n";
+        }
+
+        std::string ans = askLine("Type the name of the one you want (or press Enter to cancel): ");
+        if (ans.empty()) {
+            std::cout << "Cancelled.\n";
+            return;
+        }
+        if (toCommand(ans, commandLine)) return;
+        current = ans;
     }
-    if (!toCommand(ans, commandLine)) std::cout << "Please type a number from the list.\n";
+    std::cout << "Cancelled.\n";
 }
 
-bool Menu::toCommand(const std::string& input, std::string& commandLine) const {
+// Turns a chosen option (plus any words typed after its name) into a real command line.
+bool Menu::build(int tableIndex, const std::string& rest, std::string& commandLine) const {
     commandLine.clear();
-    std::string t = trim(input);
-    if (!isNumber(t)) return false;
+    const MenuItem& item = ITEMS[tableIndex];
 
-    if (t.size() > 3) {
-        std::cout << "Invalid menu option. Type 'menu' to see the list.\n";
-        return true;
-    }
-    int number = 0;
-    for (size_t i = 0; i < t.size(); i++) number = number * 10 + (t[i] - '0');
-
-    int idx;
-    if (number == 0) idx = exitIndex;
-    else if (number >= 1 && number <= count) idx = order[number - 1];
-    else {
-        std::cout << "Invalid menu option. Type 'menu' to see the list.\n";
-        return true;
-    }
-
-    const MenuItem& item = ITEMS[idx];
     std::string a1, a2;
-    if (item.prompt1 != nullptr) {
+    std::string r = trim(rest);
+    if (!r.empty()) {
+        size_t sp = r.find_first_of(" \t");
+        a1 = (sp == std::string::npos) ? r : r.substr(0, sp);
+        if (sp != std::string::npos) a2 = trim(r.substr(sp));
+    }
+
+    if (item.prompt1 != nullptr && a1.empty()) {
         a1 = askName(item.prompt1);
-        if (a1.empty()) return true;           // cancelled or invalid
+        if (a1.empty()) return true;
     }
     if (item.prompt2 != nullptr) {
-        a2 = item.textSecond ? askLine(item.prompt2) : askName(item.prompt2);
         if (a2.empty()) {
-            if (item.textSecond) std::cout << "Nothing entered.\n";
+            a2 = item.textSecond ? askLine(item.prompt2) : askName(item.prompt2);
+            if (a2.empty()) {
+                if (item.textSecond) std::cout << "Nothing entered.\n";
+                return true;
+            }
+        } else if (!item.textSecond && a2.find_first_of(" \t") != std::string::npos) {
+            std::cout << "Names cannot contain spaces.\n";
             return true;
         }
+    } else {
+        a2.clear();
     }
 
     std::string cmd = item.command;
     if (cmd == "!") {
-        commandLine = "!" + a1;                // "!3" = run history entry 3
+        commandLine = "!" + a1;
     } else {
         commandLine = cmd;
         if (!a1.empty()) commandLine += " " + a1;
         if (!a2.empty()) commandLine += " " + a2;
     }
     return true;
+}
+
+// If the input starts with an option's full name (any letter case), run that option.
+bool Menu::toCommand(const std::string& input, std::string& commandLine) const {
+    commandLine.clear();
+    std::string t = trim(input);
+    std::string low = normalize(t);
+    if (low.empty()) return false;
+
+    int best = -1;
+    size_t bestLen = 0;
+    for (int i = 0; i < NUM_ITEMS; i++) {
+        std::string phrase = phraseOf(i);
+        if (low.size() < phrase.size() || low.compare(0, phrase.size(), phrase) != 0) continue;
+        if (low.size() > phrase.size() && low[phrase.size()] != ' ') continue;
+        if (phrase.size() > bestLen) { best = i; bestLen = phrase.size(); }
+    }
+    if (best < 0) return false;
+
+    // Everything after the option's name (keeps the original letter case of file names).
+    std::string rest;
+    size_t words = 0;
+    for (size_t i = 0; i < bestLen; i++) if (low[i] == ' ') words++;
+    size_t pos = 0;
+    for (size_t w = 0; w <= words; w++) {
+        while (pos < t.size() && std::isspace(static_cast<unsigned char>(t[pos]))) pos++;
+        while (pos < t.size() && !std::isspace(static_cast<unsigned char>(t[pos]))) pos++;
+    }
+    rest = t.substr(pos);
+
+    return build(best, rest, commandLine);
+}
+
+// For input like "read notes.txt": the first word is a keyword of exactly one option.
+bool Menu::byWord(const std::string& input, std::string& commandLine) const {
+    commandLine.clear();
+    std::string t = trim(input);
+    size_t sp = t.find_first_of(" \t");
+    if (sp == std::string::npos) return false;
+
+    std::string word = toLower(t.substr(0, sp));
+    int found = -1, hits = 0;
+    for (int i = 0; i < NUM_ITEMS; i++) {
+        if (hasKeyword(i, word)) { found = i; hits++; }
+    }
+    if (hits != 1) return false;
+    return build(found, t.substr(sp), commandLine);
+}
+
+// Plural "s" removed, so "files" and "file", "differences" and "difference" compare equal.
+std::string Menu::stem(const std::string& w) const {
+    std::string s = toLower(w);
+    if (s.size() > 3 && s.compare(s.size() - 2, 2, "es") == 0 && s[s.size() - 3] != 'c') s.erase(s.size() - 2);
+    else if (s.size() > 3 && s[s.size() - 1] == 's') s.erase(s.size() - 1);
+    return s;
+}
+
+// Small words people add in normal sentences; they never decide which option is meant.
+bool Menu::isFiller(const std::string& w) const {
+    static const char* const FILLER[] = {
+        "the", "a", "an", "of", "to", "between", "two", "me", "my", "please",
+        "in", "for", "and", "from", "all", "with", "this", "that", "on"
+    };
+    std::string l = toLower(w);
+    for (size_t i = 0; i < sizeof(FILLER) / sizeof(FILLER[0]); i++) {
+        if (l == FILLER[i]) return true;
+    }
+    return false;
+}
+
+// True if the word is part of the option's name or one of its keywords.
+bool Menu::inVocab(int tableIndex, const std::string& stemmed) const {
+    std::string text = phraseOf(tableIndex) + " " + ITEMS[tableIndex].keywords + " ";
+    size_t start = 0;
+    while (start < text.size()) {
+        size_t e = text.find(' ', start);
+        if (e == std::string::npos) break;
+        if (e > start && stem(text.substr(start, e - start)) == stemmed) return true;
+        start = e + 1;
+    }
+    return false;
+}
+
+// Understands loosely worded input such as "show difference between files".
+// Leading words must all belong to one option; whatever follows is used as its arguments.
+bool Menu::fuzzy(const std::string& input, std::string& commandLine) const {
+    commandLine.clear();
+    std::string t = trim(input);
+    if (t.empty()) return false;
+
+    std::string words[32];
+    int n = 0;
+    size_t pos = 0;
+    while (pos < t.size() && n < 32) {
+        while (pos < t.size() && std::isspace(static_cast<unsigned char>(t[pos]))) pos++;
+        size_t b = pos;
+        while (pos < t.size() && !std::isspace(static_cast<unsigned char>(t[pos]))) pos++;
+        if (pos > b) words[n++] = t.substr(b, pos - b);
+    }
+
+    int best = -1, bestRun = 0, bestUsed = 0;
+    bool tie = false;
+    for (int i = 0; i < NUM_ITEMS; i++) {
+        int used = 0, real = 0;
+        while (used < n) {
+            if (isFiller(words[used])) { used++; continue; }
+            if (!inVocab(i, stem(words[used]))) break;
+            real++;
+            used++;
+        }
+        if (real < 2) continue;
+        if (real > bestRun) { best = i; bestRun = real; bestUsed = used; tie = false; }
+        else if (real == bestRun) tie = true;
+    }
+    if (best < 0 || tie) return false;
+
+    std::string rest;
+    for (int k = bestUsed; k < n; k++) {
+        if (!ITEMS[best].textSecond && isFiller(words[k])) continue;   // "a.txt and b.txt" -> "a.txt b.txt"
+        rest += (rest.empty() ? "" : " ") + words[k];
+    }
+    return build(best, rest, commandLine);
 }
