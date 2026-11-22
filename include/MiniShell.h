@@ -9,22 +9,20 @@
 #include "CommandManager.h"
 #include "Commands.h"
 
-// The command-line front end: reads a line, splits it, calls the right module.
 class MiniShell {
 private:
     FileSystem         fs;
     Menu               menu;
     CommandCorrector   corrector;
-    Stack<std::string> history;       // every valid command typed (top = newest)
-    CommandManager     commands;      // undo / redo stacks
-    Stack<std::string> backStack;     // folders visited before the current one
+    Stack<std::string> history;
+    CommandManager     commands;
+    Stack<std::string> backStack;
     int                plagiarismWarnings;
     int                warningsOverridden;
 
     static const int MAX_TOKENS = 32;
-    typedef const std::string Tok;    // handlers receive the words of the line
+    typedef const std::string Tok;
 
-    // ---- small helpers ----
     int         tokenize(const std::string& line, std::string tokens[], int maxTokens) const;
     std::string restAfter(const std::string& line, int skipTokens) const;
     std::string askLine(const std::string& prompt) const;
@@ -39,7 +37,6 @@ private:
     bool        rerun(const std::string& bang);
     void        doWrite(const std::string& path, const std::string& text);
 
-    // ---- one handler per command group ----
     void cmdMkdir(Tok tok[], int n);
     void cmdTouch(Tok tok[], int n);
     void cmdWrite(Tok tok[], int n, const std::string& line);
@@ -58,7 +55,7 @@ private:
     void cmdLoad(Tok tok[], int n);
     void cmdMan(Tok tok[], int n);
 
-    bool execute(const std::string& rawLine);   // returns false when user exits
+    bool execute(const std::string& rawLine);
 
 public:
     MiniShell();
