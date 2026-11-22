@@ -1,3 +1,5 @@
+/* Implements file inspection, text search, counting and directory tree utilities. */
+
 #include "FileTools.h"
 #include <iostream>
 #include <cctype>
@@ -31,7 +33,6 @@ int countWords(const std::string& s) {
     return words;
 }
 
-// ---- counts files, folders, bytes, locked and encrypted items ----
 class StatsVisitor : public NodeVisitor {
 public:
     TreeStats st;
@@ -47,7 +48,6 @@ public:
     }
 };
 
-// ---- find: names containing the text (any letter case) ----
 class FindVisitor : public NodeVisitor {
 private:
     std::string pattern;
@@ -61,7 +61,7 @@ public:
         }
     }
     void visitDirectory(const Directory& d, const std::string& path) override {
-        if (path == "/") return;   // the root has no real name
+        if (path == "/") return;
         if (toLower(d.getName()).find(pattern) != std::string::npos) {
             std::cout << "  [D] " << path << "/\n";
             count++;
@@ -69,13 +69,12 @@ public:
     }
 };
 
-// ---- grep: lines containing the word ----
 class GrepVisitor : public NodeVisitor {
 private:
     std::string word;
 public:
     int matches;
-    int skipped;   // encrypted files cannot be searched
+    int skipped;
     explicit GrepVisitor(const std::string& w) : word(toLower(w)), matches(0), skipped(0) {}
 
     void visitFile(const File& f, const std::string& path) override {
@@ -98,12 +97,12 @@ public:
     }
 };
 
-} // namespace
+}
 
 TreeStats FileTools::collect(const FileSystem& fs, const FSNode* start) {
     StatsVisitor visitor;
     start->accept(visitor, fs.pathOf(start));
-    if (start->isDirectory()) visitor.st.dirs--;   // do not count the starting folder itself
+    if (start->isDirectory()) visitor.st.dirs--;
     return visitor.st;
 }
 

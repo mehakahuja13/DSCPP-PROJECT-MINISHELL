@@ -1,3 +1,5 @@
+/* Implements command history stacks and the undo/redo flow. */
+
 #include "CommandManager.h"
 
 CommandManager::~CommandManager() {
@@ -14,9 +16,9 @@ Status CommandManager::run(Command* cmd) {
     Status s = cmd->execute();
     if (s == Status::OK && cmd->isApplied()) {
         undoStack.push(cmd);
-        deleteAll(redoStack);     // a new change makes the old "redo" history invalid
+        deleteAll(redoStack);
     } else {
-        delete cmd;               // failed or changed nothing: nothing to undo later
+        delete cmd;
     }
     return s;
 }
@@ -34,7 +36,7 @@ std::string CommandManager::undo() {
         redoStack.push(cmd);
         return "Undone: " + cmd->describe();
     }
-    undoStack.push(cmd);          // could not undo now, keep it on the stack
+    undoStack.push(cmd);
     return "Cannot undo: " + cmd->describe() +
            "\n(If you are inside that folder, move out with 'cd ..' and try again.)";
 }

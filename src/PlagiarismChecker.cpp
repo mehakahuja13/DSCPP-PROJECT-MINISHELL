@@ -1,3 +1,5 @@
+/* Normalizes text, builds word shingles and compares files through the shared index. */
+
 #include "PlagiarismChecker.h"
 #include <cctype>
 
@@ -17,7 +19,7 @@ void PlagiarismChecker::clear() {
 }
 
 int PlagiarismChecker::similarity(const std::string& a, const std::string& b) {
-    PlagiarismChecker helper;   // only used for its text-splitting functions
+    PlagiarismChecker helper;
     std::string* groupsA = nullptr;
     std::string* groupsB = nullptr;
     int na = helper.buildShingles(a, groupsA);
@@ -43,8 +45,6 @@ int PlagiarismChecker::similarity(const std::string& a, const std::string& b) {
     return percent;
 }
 
-// Lower-case; every run of non-letter/digit characters becomes a single space.
-// Bytes >= 128 (non-English text) are kept as they are.
 std::string PlagiarismChecker::normalize(const std::string& text) const {
     std::string out;
     bool pendingSpace = false;
@@ -61,7 +61,6 @@ std::string PlagiarismChecker::normalize(const std::string& text) const {
     return out;
 }
 
-// Splits a normalised string on single spaces. Caller must delete[] 'words'.
 int PlagiarismChecker::splitWords(const std::string& normalized, std::string*& words) const {
     if (normalized.empty()) { words = nullptr; return 0; }
 
@@ -82,7 +81,6 @@ int PlagiarismChecker::splitWords(const std::string& normalized, std::string*& w
     return count;
 }
 
-// Builds the 3-word groups. Caller must delete[] 'shingles'.
 int PlagiarismChecker::buildShingles(const std::string& text, std::string*& shingles) const {
     std::string norm = normalize(text);
     if (norm.empty()) { shingles = nullptr; return 0; }
@@ -94,7 +92,7 @@ int PlagiarismChecker::buildShingles(const std::string& text, std::string*& shin
     if (w < 3) {
         n = 1;
         shingles = new std::string[1];
-        shingles[0] = norm;                     // very short text: the whole text is one shingle
+        shingles[0] = norm;
     } else {
         n = w - 2;
         shingles = new std::string[n];
@@ -120,7 +118,6 @@ PlagiarismResult PlagiarismChecker::check(const std::string& text, int selfId) c
     int n = buildShingles(text, shingles);
     if (n == 0) return result;
 
-    // Running score per file: how many of the new shingles it also contains.
     struct Score {
         int   id;
         int   count;
@@ -129,7 +126,7 @@ PlagiarismResult PlagiarismChecker::check(const std::string& text, int selfId) c
     };
     Score* scores = nullptr;
 
-    HashTable seen;          // used to count each distinct shingle only once
+    HashTable seen;
     int distinct = 0;
 
     for (int i = 0; i < n; i++) {
@@ -150,7 +147,6 @@ PlagiarismResult PlagiarismChecker::check(const std::string& text, int selfId) c
         }
     }
 
-    // Pick the file with the highest score.
     int bestId = -1, bestCount = 0;
     for (Score* s = scores; s != nullptr; s = s->next) {
         if (s->count > bestCount) {
@@ -175,7 +171,7 @@ PlagiarismResult PlagiarismChecker::check(const std::string& text, int selfId) c
 }
 
 void PlagiarismChecker::indexFile(int id, const std::string& path, const std::string& text) {
-    removeFile(id);   // forget the old version of this file first
+    removeFile(id);
 
     std::string* shingles = nullptr;
     int n = buildShingles(text, shingles);
