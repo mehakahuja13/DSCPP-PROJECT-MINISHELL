@@ -1,3 +1,5 @@
+/* Connects the file system, command manager and shell features into the command loop. */
+
 #include "MiniShell.h"
 #include "FileTools.h"
 #include "CompareTools.h"
@@ -8,8 +10,6 @@
 #include <cctype>
 
 MiniShell::MiniShell() : plagiarismWarnings(0), warningsOverridden(0) {}
-
-// ============================================================ small helpers
 
 int MiniShell::tokenize(const std::string& line, std::string tokens[], int maxTokens) const {
     int count = 0;
@@ -25,7 +25,6 @@ int MiniShell::tokenize(const std::string& line, std::string tokens[], int maxTo
     return count;
 }
 
-// Returns the part of the line after the first 'skipTokens' words (used by write/append).
 std::string MiniShell::restAfter(const std::string& line, int skipTokens) const {
     size_t i = 0, n = line.size();
     for (int t = 0; t < skipTokens; t++) {
@@ -57,7 +56,6 @@ void MiniShell::report(Status s, const std::string& target) const {
     if (s != Status::OK) std::cout << "Error: " << statusMessage(s, target) << "\n";
 }
 
-// Shows the plagiarism result and decides whether the file may be saved.
 bool MiniShell::approveSave(const PlagiarismResult& r) {
     if (r.percent == 0) {
         std::cout << "Plagiarism check: 0% - content is original.\n";
@@ -84,15 +82,12 @@ bool MiniShell::approveSave(const PlagiarismResult& r) {
     return true;
 }
 
-// Hands a command object to the CommandManager and reports the result.
 Status MiniShell::runCommand(Command* cmd, const std::string& target) {
     Status s = commands.run(cmd);
     report(s, target);
     return s;
 }
 
-// Commands remember ABSOLUTE paths. An existing item gives its own path; a new name
-// becomes "parent folder + name".
 bool MiniShell::toAbsolute(const std::string& path, std::string& abs) const {
     FSNode* node = fs.resolve(path);
     if (node != nullptr) {
@@ -107,7 +102,6 @@ bool MiniShell::toAbsolute(const std::string& path, std::string& abs) const {
     return true;
 }
 
-// cd that remembers where we came from (for 'back').
 Status MiniShell::changeDirectory(const std::string& path) {
     std::string before = fs.pwd();
     Status s = fs.cd(path);
@@ -115,10 +109,6 @@ Status MiniShell::changeDirectory(const std::string& path) {
     return s;
 }
 
-// ============================================================ history
-
-// The stack gives newest first; moving everything to a temporary stack reverses
-// the order (oldest on top), and moving it back restores the original.
 bool MiniShell::historyAt(int number, std::string& out) {
     Stack<std::string> reversed;
     std::string item;
@@ -160,7 +150,6 @@ void MiniShell::showHistory(const std::string& filter) {
     if (shown == 0) std::cout << "No history entry contains '" << filter << "'.\n";
 }
 
-// "!3" runs history entry 3 again, "!!" runs the last one.
 bool MiniShell::rerun(const std::string& bang) {
     int number = 0;
     if (bang == "!!") {
@@ -183,9 +172,6 @@ bool MiniShell::rerun(const std::string& bang) {
     return execute(item);
 }
 
-// ============================================================ write / append
-
-// Plagiarism check -> confirmation -> undoable write.
 void MiniShell::doWrite(const std::string& path, const std::string& text) {
     PlagiarismResult result;
     Status s = fs.checkContent(path, text, result);
@@ -196,7 +182,7 @@ void MiniShell::doWrite(const std::string& path, const std::string& text) {
     if (!approveSave(result)) return;
 
     std::string abs;
-    fs.absolutePath(path, abs);   // path was already validated by checkContent
+    fs.absolutePath(path, abs);
     Status w = commands.run(new WriteCommand(fs, abs, text));
     report(w, path);
     if (w == Status::OK) std::cout << "Saved '" << path << "'.\n";
@@ -212,14 +198,12 @@ void MiniShell::cmdAppend(Tok tok[], int n, const std::string& line) {
 
     std::string oldText;
     Status s = fs.cat(tok[1], oldText);
-    if (s == Status::NOT_FOUND) oldText.clear();          // append creates the file, like write
+    if (s == Status::NOT_FOUND) oldText.clear();
     else if (s != Status::OK) { report(s, tok[1]); return; }
 
     std::string add = restAfter(line, 2);
     doWrite(tok[1], oldText.empty() ? add : oldText + "\n" + add);
 }
-
-// ============================================================ file commands
 
 void MiniShell::cmdMkdir(Tok tok[], int n) {
     if (n < 2) { std::cout << "Usage: mkdir <name>...\n"; return; }
@@ -246,7 +230,7 @@ void MiniShell::cmdCat(Tok tok[], int n) {
     for (int i = 1; i < n; i++) {
         std::string out;
         Status s = fs.cat(tok[i], out);
-        if (s == Status::ENCRYPTED) {   // needs the password; the file itself stays encrypted
+        if (s == Status::ENCRYPTED) {
             std::string pw = askLine("Password for '" + tok[i] + "': ");
             s = fs.catWithPassword(tok[i], pw, out);
         }
@@ -295,8 +279,6 @@ void MiniShell::cmdMv(Tok tok[], int n) {
     if (s == Status::OK) std::cout << "Moved '" << tok[1] << "' to '" << tok[2] << "'.\n";
 }
 
-// ============================================================ security
-
 void MiniShell::cmdLock(Tok tok[], int n, bool lockIt) {
     if (n < 2) { std::cout << "Usage: " << (lockIt ? "lock" : "unlock") << " <name>...\n"; return; }
     for (int i = 1; i < n; i++) {
@@ -320,8 +302,6 @@ void MiniShell::cmdEncrypt(Tok tok[], int n, bool encryptIt) {
     Status s = runCommand(new EncryptCommand(fs, fs.pathOf(node), password, encryptIt), tok[1]);
     if (s == Status::OK) std::cout << (encryptIt ? "Encrypted '" : "Decrypted '") << tok[1] << "'.\n";
 }
-
-// ============================================================ navigation extras
 
 void MiniShell::cmdBookmark(Tok tok[], int n) {
     std::string sub = (n >= 2) ? tok[1] : "list";
@@ -347,7 +327,7 @@ void MiniShell::cmdBookmark(Tok tok[], int n) {
         std::string* paths = new std::string[total];
         for (int i = 0; i < total; i++) fs.getBookmarks().entryAt(i, names[i], paths[i]);
 
-        for (int i = 1; i < total; i++) {          // insertion sort by name (A-Z)
+        for (int i = 1; i < total; i++) {
             std::string nm = names[i], pa = paths[i];
             int j = i - 1;
             while (j >= 0 && names[j] > nm) { names[j + 1] = names[j]; paths[j + 1] = paths[j]; j--; }
@@ -380,12 +360,10 @@ void MiniShell::cmdBack() {
             std::cout << "Back to " << fs.pwd() << "\n";
             return;
         }
-        // that folder no longer exists: try the one before it
+
     }
     std::cout << "No previous folder.\n";
 }
-
-// ============================================================ system
 
 void MiniShell::cmdStats() {
     TreeStats st = FileTools::collect(fs, fs.getRoot());
@@ -421,7 +399,7 @@ void MiniShell::cmdLoad(Tok tok[], int n) {
 
     Status s = Persistence::load(fs, filename);
     if (s == Status::OK) {
-        commands.clearAll();     // old undo steps belong to the old tree
+        commands.clearAll();
         backStack.clear();
         std::cout << "Loaded '" << filename << "'. You are in " << fs.pwd() << "\n";
     } else {
@@ -443,14 +421,12 @@ void MiniShell::cmdMan(Tok tok[], int n) {
     }
 }
 
-// ============================================================ the command handler
-
 bool MiniShell::execute(const std::string& rawLine) {
-    // A menu number is converted into the equivalent typed command first.
+
     std::string line = rawLine;
     std::string translated;
     if (menu.toCommand(rawLine, translated)) {
-        if (translated.empty()) return true;   // invalid or cancelled choice
+        if (translated.empty()) return true;
         line = translated;
     }
 
@@ -460,10 +436,8 @@ bool MiniShell::execute(const std::string& rawLine) {
 
     const std::string& cmd = tok[0];
 
-    // "!3" / "!!": run a command from the history again.
     if (cmd[0] == '!') return rerun(cmd);
 
-    // Remember valid commands (a mistyped one is stored only after it is corrected).
     if (corrector.isValid(cmd)) history.push(line);
 
     if (cmd == "exit" || cmd == "quit") {
@@ -472,7 +446,7 @@ bool MiniShell::execute(const std::string& rawLine) {
         if (n < 2) {
             menu.display();
         } else {
-            // "menu cr" lists the options starting with "cr"; run the one the user picks.
+
             std::string chosen;
             menu.pick(tok[1], chosen);
             if (!chosen.empty()) return execute(chosen);
@@ -481,7 +455,7 @@ bool MiniShell::execute(const std::string& rawLine) {
         Manual::printHelp();
     } else if (cmd == "man") {
         cmdMan(tok, n);
-    // ---- basic ----
+
     } else if (cmd == "pwd") {
         std::cout << fs.pwd() << "\n";
     } else if (cmd == "ls") {
@@ -498,7 +472,10 @@ bool MiniShell::execute(const std::string& rawLine) {
         cmdWrite(tok, n, line);
     } else if (cmd == "append") {
         cmdAppend(tok, n, line);
-    } else if (cmd == "cat") {
+    } else if (cmd == "show" && menu.fuzzy(line, translated)) {
+        if (translated.empty()) return true;
+        return execute(translated);
+    } else if (cmd == "cat" || cmd == "show") {
         cmdCat(tok, n);
     } else if (cmd == "rm") {
         cmdRm(tok, n);
@@ -506,7 +483,7 @@ bool MiniShell::execute(const std::string& rawLine) {
         cmdCp(tok, n);
     } else if (cmd == "mv") {
         cmdMv(tok, n);
-    // ---- navigation extras ----
+
     } else if (cmd == "tree") {
         std::string target = (n > 1) ? tok[1] : "";
         report(FileTools::tree(fs, target), target);
@@ -516,7 +493,7 @@ bool MiniShell::execute(const std::string& rawLine) {
         cmdBookmark(tok, n);
     } else if (cmd == "goto") {
         cmdGoto(tok, n);
-    // ---- search and info ----
+
     } else if (cmd == "info") {
         std::string target = (n > 1) ? tok[1] : "";
         report(FileTools::info(fs, target), target);
@@ -536,7 +513,7 @@ bool MiniShell::execute(const std::string& rawLine) {
             std::string target = (n > 2) ? tok[2] : "";
             report(FileTools::grep(fs, tok[1], target), target);
         }
-    // ---- plagiarism ----
+
     } else if (cmd == "compare") {
         if (n != 3) std::cout << "Usage: compare <file1> <file2>\n";
         else {
@@ -551,7 +528,7 @@ bool MiniShell::execute(const std::string& rawLine) {
             Status s = CompareTools::diff(fs, tok[1], tok[2]);
             if (s != Status::OK) report(s, tok[1] + " / " + tok[2]);
         }
-    // ---- security ----
+
     } else if (cmd == "lock") {
         cmdLock(tok, n, true);
     } else if (cmd == "unlock") {
@@ -560,7 +537,7 @@ bool MiniShell::execute(const std::string& rawLine) {
         cmdEncrypt(tok, n, true);
     } else if (cmd == "decrypt") {
         cmdEncrypt(tok, n, false);
-    // ---- history and system ----
+
     } else if (cmd == "undo") {
         std::cout << commands.undo() << "\n";
     } else if (cmd == "redo") {
@@ -574,7 +551,7 @@ bool MiniShell::execute(const std::string& rawLine) {
     } else if (cmd == "load") {
         cmdLoad(tok, n);
     } else {
-        // Typed letters such as "cr": list every menu option starting with them (A-Z).
+
         if (n == 1 && menu.countMatches(cmd) > 0) {
             std::string chosen;
             menu.pick(cmd, chosen);
@@ -582,10 +559,20 @@ bool MiniShell::execute(const std::string& rawLine) {
             return true;
         }
 
+        std::string byKeyword;
+        if (menu.fuzzy(line, byKeyword)) {
+            if (byKeyword.empty()) return true;
+            return execute(byKeyword);
+        }
+        if (n > 1 && menu.byWord(line, byKeyword)) {
+            if (byKeyword.empty()) return true;
+            return execute(byKeyword);
+        }
+
         std::string suggestion;
         if (corrector.suggest(cmd, suggestion)) {
             if (confirm("Unknown command '" + cmd + "'. Did you mean '" + suggestion + "'?")) {
-                // Run the corrected command with the same arguments.
+
                 return execute(suggestion + " " + restAfter(line, 1));
             }
             std::cout << "Cancelled.\n";
