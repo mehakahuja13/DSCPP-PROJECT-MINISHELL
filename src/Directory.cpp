@@ -1,3 +1,5 @@
+/* Implements directory contents, child management, size calculation and display. */
+
 #include "Directory.h"
 #include "PlagiarismChecker.h"
 #include <iostream>
@@ -5,7 +7,6 @@
 Directory::Directory(const std::string& n, Directory* p)
     : FSNode(n, p), head(nullptr), count(0) {}
 
-// Walk the list, delete every child (a child Directory deletes its own subtree).
 Directory::~Directory() {
     ChildNode* cur = head;
     while (cur != nullptr) {
@@ -32,7 +33,6 @@ size_t Directory::getSize() const {
     return total;
 }
 
-// Deep copy: clone every child (each File / Directory clones itself).
 FSNode* Directory::clone() const {
     Directory* copy = new Directory(name, nullptr);
     for (ChildNode* cur = head; cur != nullptr; cur = cur->next) {
@@ -49,7 +49,6 @@ bool Directory::containsLocked() const {
     return false;
 }
 
-// Visit this folder first, then everything inside it (depth-first).
 void Directory::accept(NodeVisitor& visitor, const std::string& path) const {
     visitor.visitDirectory(*this, path);
     for (ChildNode* cur = head; cur != nullptr; cur = cur->next) {
@@ -57,7 +56,6 @@ void Directory::accept(NodeVisitor& visitor, const std::string& path) const {
     }
 }
 
-// Forward to every child, so all files in this subtree get removed from the index.
 void Directory::unregisterFrom(PlagiarismChecker& checker) const {
     for (ChildNode* cur = head; cur != nullptr; cur = cur->next) {
         cur->node->unregisterFrom(checker);
@@ -112,7 +110,6 @@ bool Directory::removeChild(const std::string& childName) {
     return false;
 }
 
-// Removes the child from the list WITHOUT deleting it (the caller keeps it).
 bool Directory::unlinkChild(FSNode* child) {
     ChildNode* prev = nullptr;
     ChildNode* cur  = head;
@@ -120,7 +117,7 @@ bool Directory::unlinkChild(FSNode* child) {
         if (cur->node == child) {
             if (prev == nullptr) head = cur->next;
             else prev->next = cur->next;
-            delete cur;           // only the list cell, not the node itself
+            delete cur;
             count--;
             child->setParent(nullptr);
             return true;
@@ -137,14 +134,10 @@ void Directory::listChildren() const {
         return;
     }
     for (ChildNode* cur = head; cur != nullptr; cur = cur->next) {
-        cur->node->display();   // polymorphic call
+        cur->node->display();
     }
 }
 
-// Draws the subtree like:
-//   |-- docs/
-//   |   `-- a.txt
-//   `-- b.txt
 void Directory::printTree(const std::string& prefix) const {
     for (ChildNode* cur = head; cur != nullptr; cur = cur->next) {
         bool last = (cur->next == nullptr);

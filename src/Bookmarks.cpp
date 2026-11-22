@@ -1,3 +1,5 @@
+/* Implements the bookmark table, including lookup, update, removal and cleanup. */
+
 #include "Bookmarks.h"
 
 Bookmarks::Bookmarks() : count(0) {
@@ -19,7 +21,7 @@ unsigned int Bookmarks::hashOf(const std::string& name) const {
 bool Bookmarks::set(const std::string& name, const std::string& path) {
     unsigned int b = hashOf(name);
     for (Entry* e = buckets[b]; e != nullptr; e = e->next) {
-        if (e->name == name) { e->path = path; return false; }   // replace existing
+        if (e->name == name) { e->path = path; return false; }
     }
     buckets[b] = new Entry(name, path, buckets[b]);
     count++;

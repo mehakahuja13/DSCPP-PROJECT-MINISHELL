@@ -1,3 +1,5 @@
+/* Implements path resolution and the operations used to manage the virtual directory tree. */
+
 #include "FileSystem.h"
 #include <iostream>
 #include <utility>
@@ -31,7 +33,7 @@ FileSystem::FileSystem() {
 }
 
 FileSystem::~FileSystem() {
-    delete root;   // frees the whole tree recursively
+    delete root;
 }
 
 bool FileSystem::validName(const std::string& n) const {
@@ -39,7 +41,6 @@ bool FileSystem::validName(const std::string& n) const {
     return n.find('/') == std::string::npos;
 }
 
-// Walks the path component by component.
 FSNode* FileSystem::resolve(const std::string& path) const {
     if (path.empty()) return cwd;
 
@@ -68,7 +69,6 @@ FSNode* FileSystem::resolve(const std::string& path) const {
     return node;
 }
 
-// Splits "a/b/c" into parent directory (a/b) and leaf name (c).
 Status FileSystem::splitParent(const std::string& rawPath, Directory*& parentDir, std::string& leaf) const {
     std::string path = rawPath;
     while (path.size() > 1 && path[path.size() - 1] == '/') path.erase(path.size() - 1);
@@ -107,8 +107,6 @@ Status FileSystem::absolutePath(const std::string& path, std::string& out) const
     return Status::OK;
 }
 
-// ---------------------------------------------------------------- basic commands
-
 Status FileSystem::mkdir(const std::string& path) {
     Directory* parentDir = nullptr;
     std::string leaf;
@@ -132,7 +130,7 @@ Status FileSystem::touch(const std::string& path) {
     std::string leaf;
     Status s = splitParent(path, parentDir, leaf);
     if (s != Status::OK) return s;
-    if (parentDir->findChild(leaf) != nullptr) return Status::OK;  // like real touch: no-op if it exists
+    if (parentDir->findChild(leaf) != nullptr) return Status::OK;
     parentDir->addChild(new File(leaf, parentDir));
     return Status::OK;
 }
@@ -155,7 +153,6 @@ Status FileSystem::cat(const std::string& path, std::string& out) const {
     return Status::OK;
 }
 
-// Reads a file without changing it; an encrypted file needs the right password.
 Status FileSystem::catWithPassword(const std::string& path, const std::string& password, std::string& out) const {
     FSNode* node = resolve(path);
     if (node == nullptr) return Status::NOT_FOUND;
@@ -171,7 +168,7 @@ Status FileSystem::checkContent(const std::string& path, const std::string& text
     Status s = splitParent(path, parentDir, leaf);
     if (s != Status::OK) return s;
 
-    int selfId = 0;   // 0 = file does not exist yet
+    int selfId = 0;
     FSNode* existing = parentDir->findChild(leaf);
     if (existing != nullptr) {
         if (existing->isDirectory()) return Status::NOT_A_FILE;
@@ -208,23 +205,19 @@ Status FileSystem::writeFile(const std::string& path, const std::string& text) {
     return Status::OK;
 }
 
-// ---------------------------------------------------------------- remove / move / copy
-
 Status FileSystem::canRemove(const std::string& path) const {
     FSNode* node = resolve(path);
     if (node == nullptr) return Status::NOT_FOUND;
     if (node == root) return Status::CANNOT_REMOVE_ROOT;
 
-    // Never delete the directory we are standing in, or any ancestor of it.
     for (Directory* d = cwd; d != nullptr; d = d->getParent()) {
         if (d == node) return Status::CANNOT_REMOVE_CWD;
     }
-    // A locked item (or a folder holding one) is protected.
+
     if (node->containsLocked()) return Status::LOCKED;
     return Status::OK;
 }
 
-// Takes the node out of the tree (and out of the plagiarism index) but keeps it alive.
 Status FileSystem::detach(const std::string& path, FSNode*& out) {
     Status s = canRemove(path);
     if (s != Status::OK) return s;
@@ -237,7 +230,6 @@ Status FileSystem::detach(const std::string& path, FSNode*& out) {
     return Status::OK;
 }
 
-// Puts a detached node back under 'parentPath' and re-indexes its files.
 Status FileSystem::attach(const std::string& parentPath, FSNode* node) {
     FSNode* p = resolve(parentPath);
     if (p == nullptr) return Status::NOT_FOUND;
@@ -249,7 +241,6 @@ Status FileSystem::attach(const std::string& parentPath, FSNode* node) {
     return Status::OK;
 }
 
-// Permanent removal: detach, then free the node.
 Status FileSystem::remove(const std::string& path) {
     FSNode* node = nullptr;
     Status s = detach(path, node);
@@ -258,13 +249,11 @@ Status FileSystem::remove(const std::string& path) {
     return Status::OK;
 }
 
-// 'dst' is either an existing folder (the item goes inside it and keeps its name)
-// or a new name inside an existing folder.
 Status FileSystem::resolveDestination(const std::string& dst, const std::string& srcName,
                                       Directory*& destDir, std::string& newName) const {
     FSNode* target = resolve(dst);
     if (target != nullptr) {
-        if (!target->isDirectory()) return Status::ALREADY_EXISTS;   // dst is an existing file
+        if (!target->isDirectory()) return Status::ALREADY_EXISTS;
         destDir = static_cast<Directory*>(target);
         newName = srcName;
         if (destDir->findChild(newName) != nullptr) return Status::ALREADY_EXISTS;
@@ -282,7 +271,6 @@ Status FileSystem::copy(const std::string& src, const std::string& dst, std::str
     Status s = resolveDestination(dst, node->getName(), destDir, newName);
     if (s != Status::OK) return s;
 
-    // A folder cannot be copied into itself or into one of its own subfolders.
     if (node->isDirectory()) {
         for (Directory* d = destDir; d != nullptr; d = d->getParent()) {
             if (d == node) return Status::INSIDE_ITSELF;
@@ -292,13 +280,13 @@ Status FileSystem::copy(const std::string& src, const std::string& dst, std::str
     FSNode* copyNode = node->clone();
     copyNode->setName(newName);
     destDir->addChild(copyNode);
-    copyNode->registerWith(checker, pathOf(destDir));   // the copy takes part in plagiarism checks
+    copyNode->registerWith(checker, pathOf(destDir));
     createdPath = pathOf(copyNode);
     return Status::OK;
 }
 
 Status FileSystem::move(const std::string& src, const std::string& dst, std::string& finalPath) {
-    Status c = canRemove(src);   // same protection as rm: root, current folder, locked items
+    Status c = canRemove(src);
     if (c != Status::OK) return c;
 
     FSNode* node = resolve(src);
@@ -317,14 +305,12 @@ Status FileSystem::move(const std::string& src, const std::string& dst, std::str
     s = detach(src, detached);
     if (s != Status::OK) return s;
 
-    detached->setName(newName);        // rename (same name when only moving)
+    detached->setName(newName);
     destDir->addChild(detached);
     detached->registerWith(checker, pathOf(destDir));
     finalPath = pathOf(detached);
     return Status::OK;
 }
-
-// ---------------------------------------------------------------- security
 
 Status FileSystem::setLocked(const std::string& path, bool value, bool& changed) {
     FSNode* node = resolve(path);
@@ -343,7 +329,7 @@ Status FileSystem::encryptFile(const std::string& path, const std::string& passw
     if (f->isEncrypted()) return Status::ALREADY_ENCRYPTED;
 
     f->encrypt(password);
-    checker.removeFile(f->getId());   // scrambled text must not appear in plagiarism checks
+    checker.removeFile(f->getId());
     return Status::OK;
 }
 
@@ -356,11 +342,9 @@ Status FileSystem::decryptFile(const std::string& path, const std::string& passw
     if (!f->isEncrypted()) return Status::NOT_ENCRYPTED;
     if (!f->decrypt(password)) return Status::WRONG_PASSWORD;
 
-    checker.indexFile(f->getId(), pathOf(f), f->getContent());   // readable again
+    checker.indexFile(f->getId(), pathOf(f), f->getContent());
     return Status::OK;
 }
-
-// ---------------------------------------------------------------- load support
 
 Status FileSystem::loadFile(const std::string& path, const std::string& content,
                             bool lockedFlag, bool encryptedFlag, unsigned long long hash) {
@@ -380,7 +364,7 @@ Status FileSystem::loadFile(const std::string& path, const std::string& content,
 }
 
 namespace {
-// Puts every readable file of a tree into the plagiarism index.
+
 class IndexVisitor : public NodeVisitor {
 private:
     PlagiarismChecker& checker;
@@ -398,16 +382,14 @@ void FileSystem::reindexAll() {
     root->accept(visitor, "/");
 }
 
-// Takes over the tree and bookmarks of 'other'. 'other' ends up holding our old
-// tree, which is freed when 'other' is destroyed.
 void FileSystem::adopt(FileSystem& other) {
     std::swap(root, other.root);
-    cwd = other.cwd;            // other.cwd points into the tree we now own
+    cwd = other.cwd;
     other.cwd = other.root;
 
     bookmarks.clear();
     std::string name, path;
     for (int i = 0; other.bookmarks.entryAt(i, name, path); i++) bookmarks.set(name, path);
 
-    reindexAll();               // rebuild the plagiarism index for the new tree
+    reindexAll();
 }

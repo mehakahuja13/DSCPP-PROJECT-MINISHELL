@@ -1,3 +1,5 @@
+/* Implements file content handling and the metadata stored with each file. */
+
 #include "File.h"
 #include "PlagiarismChecker.h"
 #include <iostream>
@@ -7,7 +9,6 @@ int File::nextId = 1;
 File::File(const std::string& n, Directory* p)
     : FSNode(n, p), id(nextId++), encrypted(false), passHash(0) {}
 
-// FNV-1a 64-bit hash.
 unsigned long long File::hashPassword(const std::string& password) {
     unsigned long long h = 14695981039346656037ULL;
     for (size_t i = 0; i < password.size(); i++) {
@@ -17,8 +18,6 @@ unsigned long long File::hashPassword(const std::string& password) {
     return h;
 }
 
-// XOR every byte with a password byte and a position-dependent value.
-// The same call both encrypts and decrypts.
 std::string File::applyCipher(const std::string& text, const std::string& password) {
     std::string out = text;
     if (password.empty()) return out;
@@ -41,7 +40,6 @@ void File::display() const {
     std::cout << "[F] " << getLabel() << "  (" << content.size() << " bytes)\n";
 }
 
-// Copy used by 'cp': same content, but a NEW id and not locked.
 FSNode* File::clone() const {
     File* copy = new File(name, nullptr);
     copy->content   = content;
@@ -58,7 +56,6 @@ void File::unregisterFrom(PlagiarismChecker& checker) const {
     checker.removeFile(id);
 }
 
-// Encrypted files are never put in the plagiarism index.
 void File::registerWith(PlagiarismChecker& checker, const std::string& dirPath) const {
     if (encrypted) return;
     checker.indexFile(id, joinPath(dirPath, name), content);

@@ -1,9 +1,8 @@
+/* Provides the stack structure used by command history and undo/redo handling. */
+
 #ifndef STACK_H
 #define STACK_H
 
-// Hand-written generic stack (LIFO) built on a singly linked list.
-// Used for: command history, the undo stack and the redo stack.
-// It does not own what it stores; whoever pushes pointers must delete them.
 template <typename T>
 class Stack {
 private:
@@ -28,7 +27,6 @@ public:
         count++;
     }
 
-    // Removes the top element into 'out'. Returns false if the stack is empty.
     bool pop(T& out) {
         if (topNode == nullptr) return false;
         Node* old = topNode;

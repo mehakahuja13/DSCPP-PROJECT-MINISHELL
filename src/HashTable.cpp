@@ -1,3 +1,5 @@
+/* Implements hash-table storage and the links that track which files contain each key. */
+
 #include "HashTable.h"
 
 HashTable::HashTable() {
@@ -28,7 +30,6 @@ void HashTable::clear() {
     }
 }
 
-// djb2 string hash.
 unsigned int HashTable::hashOf(const std::string& key) const {
     unsigned int h = 5381;
     for (size_t i = 0; i < key.size(); i++) {
@@ -39,7 +40,7 @@ unsigned int HashTable::hashOf(const std::string& key) const {
 
 HashTable::Entry* HashTable::find(const std::string& key) const {
     for (Entry* e = buckets[hashOf(key)]; e != nullptr; e = e->next) {
-        if (e->key == key) return e;   // compare the real key, not just the hash
+        if (e->key == key) return e;
     }
     return nullptr;
 }
@@ -48,11 +49,11 @@ void HashTable::add(const std::string& key, int ownerId) {
     Entry* e = find(key);
     if (e == nullptr) {
         unsigned int b = hashOf(key);
-        e = new Entry(key, buckets[b]);   // insert at the head of the chain
+        e = new Entry(key, buckets[b]);
         buckets[b] = e;
     }
     for (OwnerNode* o = e->owners; o != nullptr; o = o->next) {
-        if (o->id == ownerId) return;     // already recorded
+        if (o->id == ownerId) return;
     }
     e->owners = new OwnerNode(ownerId, e->owners);
 }
@@ -71,7 +72,7 @@ void HashTable::removeOwner(int ownerId) {
         Entry* prevEntry = nullptr;
         Entry* e = buckets[i];
         while (e != nullptr) {
-            // remove ownerId from this key's owner list
+
             OwnerNode* prevOwner = nullptr;
             OwnerNode* o = e->owners;
             while (o != nullptr) {
@@ -86,7 +87,7 @@ void HashTable::removeOwner(int ownerId) {
                     o = o->next;
                 }
             }
-            // if nobody owns this key any more, delete the key itself
+
             if (e->owners == nullptr) {
                 Entry* dead = e;
                 e = e->next;

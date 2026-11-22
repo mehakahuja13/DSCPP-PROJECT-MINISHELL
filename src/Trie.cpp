@@ -1,3 +1,5 @@
+/* Implements trie insertion, prefix lookup and memory cleanup. */
+
 #include "Trie.h"
 
 Trie::Node::Node() : ids(nullptr) {
@@ -22,7 +24,6 @@ void Trie::destroy(Node* n) {
     delete n;
 }
 
-// Adds the id to a node's list unless it is already there.
 void Trie::addId(Node* n, int id) {
     for (IdNode* cur = n->ids; cur != nullptr; cur = cur->next) {
         if (cur->id == id) return;
@@ -32,10 +33,10 @@ void Trie::addId(Node* n, int id) {
 
 void Trie::insert(const std::string& word, int id) {
     Node* cur = root;
-    addId(cur, id);                       // the empty prefix matches every item
+    addId(cur, id);
     for (size_t i = 0; i < word.size(); i++) {
         unsigned char c = static_cast<unsigned char>(word[i]);
-        if (c >= ALPHABET) return;        // only plain ASCII words are supported
+        if (c >= ALPHABET) return;
         if (cur->child[c] == nullptr) cur->child[c] = new Node();
         cur = cur->child[c];
         addId(cur, id);

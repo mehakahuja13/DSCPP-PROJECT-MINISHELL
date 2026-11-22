@@ -1,9 +1,11 @@
+# Build MiniShell: main.cpp includes all the other source files.
 CXX = g++
-CXXFLAGS = -std=c++11 -Wall -Wextra -Iinclude
-SRC = main.cpp src/File.cpp src/Directory.cpp src/FileSystem.cpp src/MiniShell.cpp src/Menu.cpp src/CommandCorrector.cpp src/HashTable.cpp src/PlagiarismChecker.cpp src/Trie.cpp src/Commands.cpp src/CommandManager.cpp src/Bookmarks.cpp src/Manual.cpp src/FileTools.cpp src/CompareTools.cpp src/Persistence.cpp
+CXXFLAGS = -std=c++11 -Wall -Wextra -Iinclude -Isrc
 
-minishell: $(SRC)
-	$(CXX) $(CXXFLAGS) -o minishell $(SRC)
+minishell.exe: main.cpp
+	$(CXX) $(CXXFLAGS) main.cpp -o minishell.exe
 
 clean:
-	rm -f minishell
+	rm -f minishell minishell.exe
+
+.PHONY: clean
